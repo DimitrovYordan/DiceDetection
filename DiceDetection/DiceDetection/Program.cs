@@ -1,263 +1,139 @@
-﻿using Emgu.CV;
-using Emgu.CV.CvEnum;
+﻿//using OpenCvSharp;
+//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.IO;
+//using Accord.MachineLearning;
+using Emgu.CV;
 using Emgu.CV.Structure;
-using Emgu.CV.Util;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
 
-public class DiceRecognizer
+class DiceTracker
 {
-    // --- FINAL PARAMETERS FOR TUNING ---
-    // Adjust these values to match your video's lighting conditions
-
-    // HSV color range for BLACK objects (dice)
-    private const int HUE_MIN = 0;
-    private const int HUE_MAX = 179;
-    private const int SATURATION_MIN = 0;
-    private const int SATURATION_MAX = 50;
-    private const int VALUE_MIN = 0;
-    private const int VALUE_MAX = 70;
-
-    // Adaptive Thresholding parameters for finding dots
-    private const int ADAPTIVE_THRESH_BLOCK_SIZE = 11;
-    private const int ADAPTIVE_THRESH_C = 2;
-
-    // Area range for dot contours
-    private const double DOT_MIN_AREA = 20;
-    private const double DOT_MAX_AREA = 500;
-
-    // BGR color threshold for dots. A HIGH value indicates WHITE (bright dots).
-    private const int DOT_COLOR_THRESHOLD = 150;
-
-    // --- NEW GEOMETRIC FILTERS ---
-    // These are more robust than simple area filters
-    private const double DICE_ASPECT_RATIO_MIN = 0.5;
-    private const double DICE_ASPECT_RATIO_MAX = 1.5;
-    private const double DICE_SOLIDITY_MIN = 0.9; // Higher value for a tighter filter
-    private const double DICE_EXTENT_MIN = 0.7; // A good starting value
-
-    // --- END OF TUNING PARAMETERS ---
-
-    public static void RecognizeDiceInVideo(string videoPath)
+    static void Main()
     {
-        using (VideoCapture capture = new VideoCapture(videoPath))
-        {
-            if (!capture.IsOpened)
-            {
-                Console.WriteLine($"Error: Cannot open video file at: {videoPath}");
-                return;
-            }
+        var net = Emgu.CV.Dnn.DnnInvoke.ReadNetFromDarknet("", "");
 
-            capture.Set(CapProp.PosFrames, 482);
+        //string videoPath = @"C:\\Help\\demo4.mp4"; // Задай път към видеото
+        //string saveDir = "DetectedFrames";
+        //Directory.CreateDirectory(saveDir);
 
-            CvInvoke.NamedWindow("Original Frame", WindowFlags.AutoSize);
-            CvInvoke.NamedWindow("White Object Mask", WindowFlags.AutoSize);
-            CvInvoke.NamedWindow("Dice Dots", WindowFlags.AutoSize);
+        //using var capture = new VideoCapture(videoPath);
+        //if (!capture.IsOpened())
+        //{
+        //    Console.WriteLine("Cannot open video.");
+        //    return;
+        //}
 
-            Mat frame = new Mat();
-            int frameCount = 0;
+        //var window = new Window("Dice Detector");
+        //var subtractor = BackgroundSubtractorMOG2.Create(history: 500, varThreshold: 50, detectShadows: false);
 
-            while (capture.Read(frame))
-            {
-                frameCount = (int)capture.Get(CapProp.PosFrames);
+        //int frameIndex = 0;
 
-                if (frame.IsEmpty || frame.Width == 0 || frame.Height == 0)
-                {
-                    Console.WriteLine($"Frame {frameCount}: Original frame is empty or has zero dimensions. Stopping or skipping.");
-                    break;
-                }
+        //while (true)
+        //{
+        //    using var frame = new Mat();
+        //    if (!capture.Read(frame) || frame.Empty())
+        //        break;
 
-                CvInvoke.Imshow("Original Frame", frame);
+        //    frameIndex++;
+        //    Console.WriteLine($"Frame: {frameIndex}");
 
-                Mat hsvFrame = new Mat();
-                CvInvoke.CvtColor(frame, hsvFrame, ColorConversion.Bgr2Hsv);
+        //    Mat gray = new Mat();
+        //    Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
+        //    Cv2.GaussianBlur(gray, gray, new OpenCvSharp.Size(5, 5), 0);
 
-                if (hsvFrame.IsEmpty || hsvFrame.Width == 0 || hsvFrame.Height == 0)
-                {
-                    Console.WriteLine($"Frame {frameCount}: HSV frame is empty or has zero dimensions after BGR to HSV conversion. Skipping.");
-                    continue;
-                }
+        //    Mat fgMask = new Mat();
+        //    subtractor.Apply(gray, fgMask);
+        //    Cv2.MorphologyEx(fgMask, fgMask, MorphTypes.Open,
+        //        Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(5, 5)), iterations: 2);
 
-                using (VectorOfMat hsvChannels = new VectorOfMat())
-                {
-                    CvInvoke.Split(hsvFrame, hsvChannels);
+        //    Point[][] motionContours;
+        //    HierarchyIndex[] hierarchy;
+        //    Cv2.FindContours(fgMask, out motionContours, out hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
 
-                    if (hsvChannels.Size < 3)
-                    {
-                        Console.WriteLine($"Error: Split operation failed to create all 3 channels on frame {frameCount}. Skipping.");
-                        continue;
-                    }
+        //    List<Rect> motionAreas = new();
+        //    foreach (var cnt in motionContours)
+        //    {
+        //        if (Cv2.ContourArea(cnt) > 100 && Cv2.ContourArea(cnt) < 1000)
+        //            motionAreas.Add(Cv2.BoundingRect(cnt));
+        //    }
 
-                    Mat h = hsvChannels[0];
-                    Mat s = hsvChannels[1];
-                    Mat v = hsvChannels[2];
+        //    List<Point2f> allKeypoints = new();
 
-                    Mat colorMask = new Mat();
-                    ScalarArray lowerBlackHSV = new ScalarArray(new MCvScalar(HUE_MIN, SATURATION_MIN, VALUE_MIN));
-                    ScalarArray upperBlackHSV = new ScalarArray(new MCvScalar(HUE_MAX, SATURATION_MAX, VALUE_MAX));
-                    CvInvoke.InRange(hsvFrame, lowerBlackHSV, upperBlackHSV, colorMask);
+        //    foreach (var area in motionAreas)
+        //    {
+        //        Mat roi = new Mat(gray, area);
 
-                    Mat kernel = CvInvoke.GetStructuringElement(ElementShape.Ellipse, new Size(5, 5), new Point(-1, -1));
-                    CvInvoke.MorphologyEx(colorMask, colorMask, MorphOp.Open, kernel, new Point(-1, -1), 1, BorderType.Default, new MCvScalar());
-                    CvInvoke.MorphologyEx(colorMask, colorMask, MorphOp.Close, kernel, new Point(-1, -1), 1, BorderType.Default, new MCvScalar());
+        //        SimpleBlobDetector.Params blobParams = new SimpleBlobDetector.Params
+        //        {
+        //            FilterByColor = true,
+        //            BlobColor = 0,
+        //            FilterByArea = true,
+        //            MinArea = 10,
+        //            MaxArea = 300,
+        //            FilterByCircularity = true,
+        //            MinCircularity = 0.7f,
+        //            FilterByInertia = false,
+        //            FilterByConvexity = false
+        //        };
 
-                    CvInvoke.Imshow("White Object Mask", colorMask);
+        //        using var detector = SimpleBlobDetector.Create(blobParams);
+        //        KeyPoint[] keypoints = detector.Detect(roi);
 
-                    VectorOfVectorOfPoint potentialObjects = new VectorOfVectorOfPoint();
-                    Mat hierarchy = new Mat();
-                    CvInvoke.FindContours(colorMask, potentialObjects, hierarchy, RetrType.List, ChainApproxMethod.ChainApproxSimple);
+        //        foreach (var kp in keypoints)
+        //        {
+        //            Point2f globalPt = new Point2f(kp.Pt.X + area.X, kp.Pt.Y + area.Y);
+        //            allKeypoints.Add(globalPt);
+        //            Cv2.Circle(frame, (int)globalPt.X, (int)globalPt.Y, 10, Scalar.LimeGreen, 2);
+        //        }
+        //    }
 
-                    Mat outputFrame = frame.Clone();
-                    List<(Rectangle boundingBox, int dotCount)> foundDice = new List<(Rectangle, int)>();
+        //    // DBSCAN clustering instead of K-means
+        //    if (allKeypoints.Count >= 2)
+        //    {
+        //        double[][] data = allKeypoints.Select(p => new double[] { p.X, p.Y }).ToArray();
+        //        var dbscan = new DBSCAN(epsilon: 30, minPoints: 2);
+        //        int[] labels = dbscan.Learn(data).Decide(data);
 
-                    for (int i = 0; i < potentialObjects.Size; i++)
-                    {
-                        VectorOfPoint potentialContour = potentialObjects[i];
-                        double area = CvInvoke.ContourArea(potentialContour);
+        //        Dictionary<int, List<Point2f>> diceClusters = new();
+        //        for (int i = 0; i < allKeypoints.Count; i++)
+        //        {
+        //            int label = labels[i];
+        //            if (label == -1) continue; // noise
+        //            if (!diceClusters.ContainsKey(label))
+        //                diceClusters[label] = new List<Point2f>();
+        //            diceClusters[label].Add(allKeypoints[i]);
+        //        }
 
-                        // Check if the contour is a square-like object
-                        Rectangle boundingBox = CvInvoke.BoundingRectangle(potentialContour);
+        //        int dieIndex = 1;
+        //        foreach (var cluster in diceClusters.Values)
+        //        {
+        //            if (cluster.Count < 1 || cluster.Count > 6)
+        //                continue;
 
-                        if (boundingBox.Width <= 0 || boundingBox.Height <= 0)
-                        {
-                            continue;
-                        }
+        //            var center = cluster.Aggregate(new Point2f(0, 0), (a, b) => a + b * (1.0f / cluster.Count));
+        //            Cv2.PutText(frame, $"Die {dieIndex}: {cluster.Count}",
+        //                new OpenCvSharp.Point((int)center.X, (int)center.Y),
+        //                HersheyFonts.HersheySimplex, 0.6, Scalar.White, 2);
 
-                        double aspectRatio = (double)boundingBox.Width / boundingBox.Height;
+        //            foreach (var p in cluster)
+        //                Cv2.Circle(frame, new OpenCvSharp.Point((int)p.X, (int)p.Y), 8, Scalar.Red, 2);
 
-                        using (VectorOfPoint convexHull = new VectorOfPoint())
-                        {
-                            CvInvoke.ConvexHull(potentialContour, convexHull);
-                            double hullArea = CvInvoke.ContourArea(convexHull);
+        //            dieIndex++;
+        //        }
+        //    }
 
-                            if (hullArea == 0) continue;
+        //    Cv2.PutText(frame, $"Frame: {frameIndex}", new OpenCvSharp.Point(10, 25),
+        //        HersheyFonts.HersheySimplex, 0.8, Scalar.Yellow, 2);
 
-                            double solidity = area / hullArea;
-                            double extent = area / (double)(boundingBox.Width * boundingBox.Height);
+        //    string frameFile = Path.Combine(saveDir, $"frame_{frameIndex:D5}.jpg");
+        //    Cv2.ImWrite(frameFile, frame);
 
-                            // Apply all three geometric filters
-                            if (aspectRatio >= DICE_ASPECT_RATIO_MIN && aspectRatio <= DICE_ASPECT_RATIO_MAX &&
-                                solidity >= DICE_SOLIDITY_MIN &&
-                                extent >= DICE_EXTENT_MIN)
-                            {
-                                // ... rest of the logic for dot recognition
-                                // The dot recognition logic remains the same
-                                // ...
+        //    window.ShowImage(frame);
+        //    int key = Cv2.WaitKey(0);
+        //    if (key == 27) break;
+        //}
 
-                                Mat grayFrame = new Mat();
-                                CvInvoke.CvtColor(frame, grayFrame, ColorConversion.Bgr2Gray);
-
-                                if (boundingBox.X < 0 || boundingBox.Y < 0 ||
-                                    boundingBox.X + boundingBox.Width > grayFrame.Width ||
-                                    boundingBox.Y + boundingBox.Height > grayFrame.Height)
-                                {
-                                    continue;
-                                }
-
-                                Mat diceRoi = new Mat(grayFrame, boundingBox);
-
-                                Mat maskForDots = Mat.Zeros(diceRoi.Rows, diceRoi.Cols, DepthType.Cv8U, 1);
-                                int maskWidth = (int)(diceRoi.Width * 0.7);
-                                int maskHeight = (int)(diceRoi.Height * 0.7);
-                                int maskX = (diceRoi.Width - maskWidth) / 2;
-                                int maskY = (diceRoi.Height - maskHeight) / 2;
-                                Rectangle maskRect = new Rectangle(maskX, maskY, maskWidth, maskHeight);
-
-                                CvInvoke.Rectangle(maskForDots, maskRect, new MCvScalar(255), -1);
-
-                                Mat maskedDiceRoi = new Mat();
-                                CvInvoke.BitwiseAnd(diceRoi, diceRoi, maskedDiceRoi, maskForDots);
-
-                                Mat dotsThresh = new Mat();
-                                CvInvoke.AdaptiveThreshold(maskedDiceRoi, dotsThresh, 255,
-                                    AdaptiveThresholdType.GaussianC, ThresholdType.BinaryInv, ADAPTIVE_THRESH_BLOCK_SIZE, ADAPTIVE_THRESH_C);
-
-                                CvInvoke.Imshow("Dice Dots", dotsThresh);
-
-                                VectorOfVectorOfPoint dotContours = new VectorOfVectorOfPoint();
-                                Mat dotHierarchy = new Mat();
-                                CvInvoke.FindContours(dotsThresh, dotContours, dotHierarchy, RetrType.List, ChainApproxMethod.ChainApproxSimple);
-
-                                int dotCount = 0;
-                                for (int j = 0; j < dotContours.Size; j++)
-                                {
-                                    VectorOfPoint dotContour = dotContours[j];
-                                    double dotArea = CvInvoke.ContourArea(dotContour);
-
-                                    if (dotArea > DOT_MIN_AREA && dotArea < DOT_MAX_AREA)
-                                    {
-                                        using (VectorOfPoint dotConvexHull = new VectorOfPoint())
-                                        {
-                                            CvInvoke.ConvexHull(dotContour, dotConvexHull);
-                                            double dotHullArea = CvInvoke.ContourArea(dotConvexHull);
-
-                                            if (dotHullArea > 0)
-                                            {
-                                                double dotSolidity = dotArea / dotHullArea;
-                                                Rectangle dotBoundingBox = CvInvoke.BoundingRectangle(dotContour);
-
-                                                if (dotBoundingBox.Width <= 0 || dotBoundingBox.Height <= 0)
-                                                {
-                                                    continue;
-                                                }
-
-                                                double dotAspectRatio = (double)dotBoundingBox.Width / dotBoundingBox.Height;
-
-                                                if (dotBoundingBox.X < 0 || dotBoundingBox.Y < 0 ||
-                                                    dotBoundingBox.X + dotBoundingBox.Width > frame.Width ||
-                                                    dotBoundingBox.Y + dotBoundingBox.Height > frame.Height)
-                                                {
-                                                    continue;
-                                                }
-
-                                                Mat dotRoiOriginalFrame = new Mat(frame, dotBoundingBox);
-                                                MCvScalar meanColor = CvInvoke.Mean(dotRoiOriginalFrame);
-
-                                                if (dotSolidity > 0.8 && dotAspectRatio > 0.8 && dotAspectRatio < 1.2 && meanColor.V0 > DOT_COLOR_THRESHOLD)
-                                                {
-                                                    dotCount++;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (dotCount > 0 && dotCount <= 6)
-                                {
-                                    foundDice.Add((boundingBox, dotCount));
-                                }
-                            }
-                        }
-                    }
-
-                    if (foundDice.Count == 2)
-                    {
-                        string countsString = "";
-                        foreach (var die in foundDice)
-                        {
-                            countsString += die.dotCount + " ";
-                        }
-                        Console.WriteLine($"Frame {frameCount}: Found dice with counts: {countsString}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Frame {frameCount}: Waiting for 2 dice.");
-                    }
-                }
-
-                CvInvoke.WaitKey(0); // Спира на всеки кадър, за да можете да наблюдавате прозорците.
-            }
-        }
-        CvInvoke.DestroyAllWindows();
-    }
-
-    public static void Main(string[] args)
-    {
-        string videoFileName = @"videoFilePath.mp4";
-        RecognizeDiceInVideo(videoFileName);
-        Console.WriteLine("Dice recognition finished.");
-        Console.ReadKey();
+        //Cv2.DestroyAllWindows();
     }
 }
